@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.Common;
@@ -160,7 +160,8 @@ namespace MiningCore.Mining
 
                         // update
                         pool.PoolStats.ConnectedMiners = byMiner.Length;
-                        pool.PoolStats.PoolHashrate = pool.HashrateFromShares(poolHashesAccumulated, windowActual);
+                        // Re-calculated below as poolHashRate
+                        // pool.PoolStats.PoolHashrate = pool.HashrateFromShares(poolHashesAccumulated, windowActual);
                         pool.PoolStats.SharesPerSecond = (int) (poolHashesCountAccumulated / windowActual);
                     }
                 }
@@ -184,6 +185,7 @@ namespace MiningCore.Mining
                     continue;
 
                 // calculate & update miner, worker hashrates
+                double poolHashRate = 0;
                 foreach (var minerHashes in byMiner)
                 {
                     cf.RunTx((con, tx) =>
@@ -204,11 +206,16 @@ namespace MiningCore.Mining
                                 stats.Worker = item.Worker;
                                 stats.SharesPerSecond = (double) item.Count / windowActual;
 
+                                // update pool hashrate
+                                poolHashRate = poolHashRate + hashrate;
+								
                                 // persist
                                 statsRepo.InsertMinerWorkerPerformanceStats(con, tx, stats);
                             }
                         }
                     });
+                   // persist poolHashRate
+                   pool.PoolStats.PoolHashrate = Math.Ceiling(poolHashRate);
                 }
             }
         }
